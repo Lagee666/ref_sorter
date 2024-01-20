@@ -5,7 +5,7 @@ use std::{
     fs::{self, File, OpenOptions},
     io::Read,
     num,
-    path::Path,
+    path::Path, thread,
 };
 
 use eframe::{
@@ -16,7 +16,8 @@ use eframe::{
 
 use std::panic;
 use std::io::Write;
-
+use rodio::{OutputStream, Sink, Source};
+use std::io::BufReader;
 fn main() -> Result<(), eframe::Error> {
 
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
@@ -141,6 +142,13 @@ impl eframe::App for MyApp {
                             self.picked_path = Some(path.display().to_string());
                         }
                     }
+                    if ui.add(egui::Button::new("Save as").min_size(size)).clicked() {
+                        let extensions = ["txt"];
+                        let filedialog = rfd::FileDialog::new().add_filter("Text File", &extensions).set_file_name("Sorted_reference");
+                        if let Some(path) = filedialog.save_file() {
+                            fs::write(path, &self.reference_sorted).unwrap();
+                        }
+                    }
                     if ui.add(egui::Button::new("Sort").min_size(size)).clicked() {
                         let mut content = vec![];
                         let path = self.picked_path.clone().unwrap_or(String::new());
@@ -152,9 +160,18 @@ impl eframe::App for MyApp {
                         }
                         message = content.join("\n");
                         self.reference_sorted = message;
+
+                        thread::spawn(|| {
+                            let (_stream, handle) = rodio::OutputStream::try_default().unwrap();
+                            let sink = rodio::Sink::try_new(&handle).unwrap();
+                        
+                            let file = std::fs::File::open(r"assets\sonansu.mp3").unwrap();
+                            sink.append(rodio::Decoder::new(BufReader::new(file)).unwrap());
+                        
+                            sink.sleep_until_end();
+                        });
                     }
                     ui.add(egui::Checkbox::new(&mut self.numbering, "numbering"));
-                    
                 })
             });
 
