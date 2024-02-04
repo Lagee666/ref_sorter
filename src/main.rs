@@ -65,11 +65,14 @@ impl MyApp {
         let mut english_ref = vec![];
         let mut chinese_ref = vec![];
         for content in &contents {
-            if ('\u{0030}'..='\u{007A}').contains(&content.chars().next().unwrap()) {
-                english_ref.push(content.clone());
-            } else {
-                chinese_ref.push(content.clone());
+            if let Some(char) = &content.chars().next() {
+                if ('\u{0030}'..='\u{007A}').contains(&char) {
+                    english_ref.push(content.clone());
+                } else {
+                    chinese_ref.push(content.clone());
+                }
             }
+            
         }
         let mut ref_sort = vec![];
         ref_sort.extend(self.ref_sort_en(english_ref));
