@@ -2,16 +2,16 @@
 
 use std::{
     collections::HashMap,
-    fs::{self, File, OpenOptions},
+    fs::{self, File},
     io::Read,
     num,
     path::Path, thread,
 };
 
 use eframe::{
-    egui::{self, Checkbox},
+    egui::{self},
     emath::Align,
-    epaint::Vec2, glow::STACK_OVERFLOW,
+    epaint::Vec2,
 };
 
 use std::panic;
@@ -19,7 +19,6 @@ use std::io::Write;
 use rodio::{OutputStream, Sink, Source};
 use std::io::BufReader;
 fn main() -> Result<(), eframe::Error> {
-
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let mut viewport = egui::ViewportBuilder::default()
         .with_inner_size([840.0, 540.0]) // wide enough for the drag-drop overlay text
@@ -49,10 +48,15 @@ struct MyApp {
 }
 impl MyApp {
     fn new(cc: &eframe::CreationContext<'_>) -> Self {
-        load_global_font(& cc.egui_ctx);
+        load_global_font(&cc.egui_ctx);
         MyApp::default()
     }
-    fn ref_sort(&self, file: &mut File, numbering: bool, chinese_table: HashMap<char, i32>) -> Vec<String> {
+    fn ref_sort(
+        &self,
+        file: &mut File,
+        numbering: bool,
+        chinese_table: HashMap<char, i32>,
+    ) -> Vec<String> {
         let mut buffer = String::new();
         file.read_to_string(&mut buffer).unwrap();
         let mut contents: Vec<String> = buffer
@@ -68,16 +72,19 @@ impl MyApp {
         let mut english_ref = vec![];
         let mut chinese_ref = vec![];
         for content in &contents {
-            if ('\u{0030}'..='\u{007A}').contains(&content.chars().next().unwrap()) {
-                english_ref.push(content.clone());
-            } else {
-                chinese_ref.push(content.clone());
+            if let Some(char) = &content.chars().next() {
+                if ('\u{0030}'..='\u{007A}').contains(&char) {
+                    english_ref.push(content.clone());
+                } else {
+                    chinese_ref.push(content.clone());
+                }
             }
+            
         }
         let mut ref_sort = vec![];
         ref_sort.extend(self.ref_sort_en(english_ref));
         ref_sort.extend(self.ref_sort_zh(chinese_ref));
-        
+
         if numbering {
             for i in 1..=ref_sort.len() {
                 ref_sort[i - 1] = format!("{}. {}", i, ref_sort[i - 1]);
@@ -85,24 +92,24 @@ impl MyApp {
         }
         ref_sort
     }
-    fn ref_sort_en(&self, content:Vec<String>) -> Vec<String> {
+    fn ref_sort_en(&self, content: Vec<String>) -> Vec<String> {
         let mut content = content;
         content.sort();
         content
     }
-    
-    fn ref_sort_zh(&self, content:Vec<String>) -> Vec<String> {
+
+    fn ref_sort_zh(&self, content: Vec<String>) -> Vec<String> {
         let mut content = content;
         content.sort_by_key(|s| self.get_stroke(s.chars().next().unwrap()));
         content
     }
-    
+
     fn get_stroke(&self, chinese: char) -> i32 {
         let chinese_table = &self.chinese_table;
         let chinese = chinese;
         *chinese_table.get(&chinese).unwrap()
     }
-    
+
     fn get_chinese_table(file: &mut File) -> HashMap<char, i32> {
         let mut buffer = String::new();
         file.read_to_string(&mut buffer).unwrap();
@@ -121,10 +128,12 @@ impl Default for MyApp {
         Self {
             dropped_files: vec![],
             picked_path: Some(String::new()),
-            chinese_table: Self::get_chinese_table(&mut File::open("assets/chinese_unicode_table.txt").unwrap()),
+            chinese_table: Self::get_chinese_table(
+                &mut File::open("assets/chinese_unicode_table.txt").unwrap(),
+            ),
             reference: String::new(),
             reference_sorted: String::new(),
-            numbering: true
+            numbering: true,
         }
     }
 }
@@ -249,19 +258,27 @@ impl eframe::App for MyApp {
         });
     }
 }
-pub fn load_global_font(ctx: &egui::Context){
+pub fn load_global_font(ctx: &egui::Context) {
     let mut fonts = eframe::egui::FontDefinitions::default();
 
     // Install my own font (maybe supporting non-latin characters):
-    fonts.font_data.insert("msyh".to_owned(),
-                           eframe::egui::FontData::from_static(include_bytes!("C:\\Windows\\Fonts\\msyh.ttc"))); // .ttf and .otf supported
+    fonts.font_data.insert(
+        "msyh".to_owned(),
+        eframe::egui::FontData::from_static(include_bytes!("C:\\Windows\\Fonts\\msyh.ttc")),
+    ); // .ttf and .otf supported
 
     // Put my font first (highest priority):
-    fonts.families.get_mut(&eframe::egui::FontFamily::Proportional).unwrap()
+    fonts
+        .families
+        .get_mut(&eframe::egui::FontFamily::Proportional)
+        .unwrap()
         .insert(0, "msyh".to_owned());
 
     // Put my font as last fallback for monospace:
-    fonts.families.get_mut(&eframe::egui::FontFamily::Monospace).unwrap()
+    fonts
+        .families
+        .get_mut(&eframe::egui::FontFamily::Monospace)
+        .unwrap()
         .push("msyh".to_owned());
 
     // let mut ctx = egui::CtxRef::default();
@@ -303,20 +320,20 @@ fn preview_files_being_dropped(ctx: &egui::Context) {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::fs::File;
 
     use crate::MyApp;
 
-
     #[test]
     fn sort_test() {
         let path = "ref.txt";
         let mut file = File::open(path).unwrap();
         let myapp = MyApp::default();
-        let chinese_table =  MyApp::get_chinese_table(&mut File::open("./assets/chinese_unicode_table.txt").unwrap());
+        let chinese_table = MyApp::get_chinese_table(
+            &mut File::open("./assets/chinese_unicode_table.txt").unwrap(),
+        );
         let content = myapp.ref_sort(&mut file, false, chinese_table);
         println!("{:?}", content);
     }
@@ -325,7 +342,9 @@ mod tests {
         let path = "ref_zh.txt";
         let mut file = File::open(path).unwrap();
         let myapp = MyApp::default();
-        let chinese_table = MyApp::get_chinese_table(&mut File::open("./assets/chinese_unicode_table.txt").unwrap());
+        let chinese_table = MyApp::get_chinese_table(
+            &mut File::open("./assets/chinese_unicode_table.txt").unwrap(),
+        );
         let content = myapp.ref_sort(&mut file, false, chinese_table);
         println!("{:?}", content);
     }
